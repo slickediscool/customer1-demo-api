@@ -1,35 +1,20 @@
-FROM php:8.1-fpm
+FROM php:8.1-apache
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    unzip
+# Copy application files
+COPY . /var/www/html/
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Enable Apache rewrite module
+RUN a2enmod rewrite
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html
 
-# Get latest Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Expose port 80
+EXPOSE 80
 
-# Set working directory
-WORKDIR /var/www
+# Use the default production configuration
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-# Copy existing application directory contents
-COPY . /var/www
-
-# Install dependencies
-RUN composer install
-
-# Copy existing application directory permissions
-COPY --chown=www-data:www-data . /var/www
 
 # Expose port 9000
 EXPOSE 9000

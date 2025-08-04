@@ -1,12 +1,18 @@
 FROM php:8.1-apache
 
-# Copy application files
-COPY . /var/www/html/
+# Create directory and copy files
+WORKDIR /var/www/html
+
+# Copy all files
+COPY . .
+
+# Move index.php to root
+RUN mv routes/index.php .
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# Configure Apache to use mod_rewrite and set permissions
+# Configure Apache to use mod_rewrite
 RUN echo '\
 <Directory /var/www/html>\n\
     Options Indexes FollowSymLinks\n\
@@ -29,7 +35,9 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN echo "log_errors = On" >> /usr/local/etc/php/php.ini
 RUN echo "error_log = /dev/stderr" >> /usr/local/etc/php/php.ini
 
-# Restart Apache
+# List files for debugging
+RUN echo "Contents of /var/www/html:" && ls -la /var/www/html/
+
 CMD ["apache2-foreground"]
 
 

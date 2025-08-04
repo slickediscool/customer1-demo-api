@@ -15,7 +15,4 @@ EXPOSE 80
 # Use the default production configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-
-# Expose port 9000
-EXPOSE 9000
-CMD ["php-fpm"]
+# Apache is started automatically, no need for CMD

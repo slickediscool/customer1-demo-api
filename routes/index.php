@@ -27,22 +27,73 @@ $request_method = $_SERVER['REQUEST_METHOD'];
 switch ($request_uri) {
     case '/health':
         if ($request_method === 'GET') {
-            echo json_encode(['status' => 'OK']);
+            $db_status = $pdo ? 'connected' : 'disconnected';
+            echo json_encode(['status' => 'OK', 'database' => $db_status]);
         }
         break;
 
     case '/api/messages':
         if ($request_method === 'GET') {
-            echo json_encode(['messages' => ['Sample message 1', 'Sample message 2']]);
+            if ($pdo) {
+                try {
+                    // Create table if it doesn't exist
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
+                        id SERIAL PRIMARY KEY,
+                        content TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )");
+                    
+                    // Fetch messages from database
+                    $stmt = $pdo->query("SELECT content FROM messages ORDER BY created_at DESC LIMIT 10");
+                    $messages = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    echo json_encode(['messages' => $messages ?: ['No messages in database yet']]);
+                } catch(PDOException $e) {
+                    error_log("Database query failed: " . $e->getMessage());
+                    echo json_encode(['messages' => ['Database error occurred']]);
+                }
+            } else {
+                echo json_encode(['messages' => ['Sample message 1', 'Sample message 2']]);
+            }
         } elseif ($request_method === 'POST') {
             $data = json_decode(file_get_contents('php://input'), true);
-            echo json_encode(['message' => 'Message received', 'data' => $data]);
+            if ($pdo && isset($data['message'])) {
+                try {
+                    $stmt = $pdo->prepare("INSERT INTO messages (content) VALUES (?)");
+                    $stmt->execute([$data['message']]);
+                    echo json_encode(['message' => 'Message saved to Aurora PostgreSQL', 'data' => $data]);
+                } catch(PDOException $e) {
+                    error_log("Insert failed: " . $e->getMessage());
+                    echo json_encode(['message' => 'Failed to save message', 'error' => 'Database error']);
+                }
+            } else {
+                echo json_encode(['message' => 'Message received', 'data' => $data]);
+            }
         }
         break;
 
     case '/api/chat':
         if ($request_method === 'POST') {
             echo json_encode(['response' => 'This is a simple chat response']);
+        }
+        break;
+        
+    case '/api/db-test':
+        if ($request_method === 'GET') {
+            if ($pdo) {
+                try {
+                    $stmt = $pdo->query("SELECT NOW() as current_time, version() as pg_version");
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode([
+                        'status' => 'connected',
+                        'database_time' => $result['current_time'],
+                        'postgresql_version' => $result['pg_version']
+                    ]);
+                } catch(PDOException $e) {
+                    echo json_encode(['status' => 'error', 'message' => 'Database query failed']);
+                }
+            } else {
+                echo json_encode(['status' => 'disconnected', 'message' => 'No database connection']);
+            }
         }
         break;
 
